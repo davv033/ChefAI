@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PantryChef AI - Mi Despensa & Recetas</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card-bg: #ffffff;
+      --text: #2c3e50;
+      --red: #ff4d4f;
+      --yellow: #faad14;
+      --green: #52c41a;
+      --primary: #4a90e2;
+      --ai-btn: #8e44ad;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 { font-size: 1.5rem; text-align: center; }
+    
+    .card {
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    input, select, button {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"] { flex: 2; }
+    select { flex: 1; }
+
+    button { cursor: pointer; font-weight: bold; border: none; }
+
+    .btn-add {
+      width: 100%;
+      background-color: var(--primary);
+      color: white;
+    }
+
+    .btn-ai {
+      width: 100%;
+      background-color: var(--ai-btn);
+      color: white;
+      padding: 12px;
+      font-size: 1rem;
+      border-radius: 10px;
+      margin-top: 15px;
+      transition: background 0.3s;
+    }
+
+    .btn-ai:hover { background-color: #732d91; }
+
+    .pantry-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .item-card {
+      background: var(--card-bg);
+      padding: 12px 15px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-left: 6px solid #ccc;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    }
+
+    .item-card.red { border-left-color: var(--red); }
+    .item-card.yellow { border-left-color: var(--yellow); }
+    .item-card.green { border-left-color: var(--green); }
+
+    .tag {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 12px;
+      color: white;
+    }
+    .tag.red { background: var(--red); }
+    .tag.yellow { background: var(--yellow); }
+    .tag.green { background: var(--green); }
+
+    #recipeResult {
+      display: none;
+      background: #f0f7ff;
+      border: 1px solid #b6d4fe;
+      white-space: pre-line;
+      line-height: 1.5;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      font-style: italic;
+      color: #666;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🥦 PantryChef AI</h1>
+
+  <!-- Formulario para agregar alimento -->
+  <div class="card">
+    <div class="form-group">
+      <input type="text" id="itemName" placeholder="Nombre del alimento..." />
+      <select id="itemStatus">
+        <option value="red">Vence pronto (Rojo)</option>
+        <option value="yellow" selected>Pocos días (Amarillo)</option>
+        <option value="green">Fresco (Verde)</option>
+      </select>
+    </div>
+    <button class="btn-add" onclick="addItem()">+ Agregar a la Despensa</button>
+  </div>
+
+  <!-- Lista de Alimentos -->
+  <h3>Mi Despensa</h3>
+  <div class="pantry-list" id="pantryList">
+    <div class="item-card yellow">
+      <div class="item-name">Harina de trigo</div>
+      <span class="tag yellow">Pocos días</span>
+    </div>
+    <div class="item-card red">
+      <div class="item-name">Tomates</div>
+      <span class="tag red">Vence hoy</span>
+    </div>
+    <div class="item-card yellow">
+      <div class="item-name">Queso</div>
+      <span class="tag yellow">3 días</span>
+    </div>
+    <div class="item-card red">
+      <div class="item-name">Huevos</div>
+      <span class="tag red">Vence hoy</span>
+    </div>
+  </div>
+
+  <!-- Botón de Inteligencia Artificial -->
+  <button class="btn-ai" onclick="generateRecipe()">✨ Generar Receta con IA</button>
+  
+  <div class="loading" id="loadingText">⏳ La IA está creando tu receta...</div>
+
+  <!-- Resultado de la Receta -->
+  <div class="card" id="recipeResult">
+    <h3 style="margin-top: 0;">🍳 Receta Sugerida</h3>
+    <div id="recipeContent"></div>
+  </div>
+
+  <script>
+    // Pega aquí tu API Key de Google AI Studio
+    const GEMINI_API_KEY = "AQ.Ab8RN6LjuzpkJ78QL1s1QTMWTVeTAN0vBa2-8p434Vdig3HOoQ";
+
+    function addItem() {
+      const nameInput = document.getElementById('itemName');
+      const statusSelect = document.getElementById('itemStatus');
+      const pantryList = document.getElementById('pantryList');
+
+      if (nameInput.value.trim() === '') {
+        alert('Por favor escribe el nombre de un alimento');
+        return;
+      }
+
+      const name = nameInput.value;
+      const status = statusSelect.value;
+      
+      let tagText = status === 'red' ? 'Vence pronto' : (status === 'yellow' ? 'Pocos días' : 'Fresco');
+
+      const itemHTML = `
+        <div class="item-card ${status}">
+          <div class="item-name">${name}</div>
+          <span class="tag ${status}">${tagText}</span>
+        </div>
+      `;
+
+      pantryList.insertAdjacentHTML('afterbegin', itemHTML);
+      nameInput.value = '';
+    }
+
+    async function fetchRecipeFromModel(modelName, promptText, key) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }]
+        })
+      });
+      return response;
+    }
+
+    async function generateRecipe() {
+      const itemElements = document.querySelectorAll('.item-name');
+      const ingredients = Array.from(itemElements).map(el => el.innerText);
+
+      if (ingredients.length === 0) {
+        alert('Agrega al menos un ingrediente a la despensa.');
+        return;
+      }
+
+      const key = GEMINI_API_KEY.trim();
+      if (!key || key === "TU_API_KEY_AQUI") {
+        alert('Por favor pega tu API Key en la variable GEMINI_API_KEY.');
+        return;
+      }
+
+      const loading = document.getElementById('loadingText');
+      const resultCard = document.getElementById('recipeResult');
+      const resultContent = document.getElementById('recipeContent');
+
+      loading.style.display = 'block';
+      resultCard.style.display = 'none';
+
+      const promptText = `Actúa como un chef experto en cocina de aprovechamiento. Crea una receta sencilla y rápida utilizando principalmente estos ingredientes: ${ingredients.join(', ')}. Incluye un título, lista de ingredientes e instrucciones paso a paso. Mantén el formato ordenado y breve.`;
+
+      // Lista de modelos para probar en caso de alta demanda
+      const modelsToTry = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+
+      try {
+        let data = null;
+        let success = false;
+
+        for (const model of modelsToTry) {
+          const response = await fetchRecipeFromModel(model, promptText, key);
+          const resData = await response.json();
+
+          if (response.ok) {
+            data = resData;
+            success = true;
+            break;
+          } else {
+            console.warn(`El modelo ${model} falló o está saturado:`, resData);
+          }
+        }
+
+        if (success && data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+          const recipeText = data.candidates[0].content.parts[0].text;
+          resultContent.innerText = recipeText;
+          resultCard.style.display = 'block';
+        } else {
+          alert('Los servidores están con mucha demanda en este instante. Por favor presiona el botón nuevamente en 5 segundos.');
+        }
+      } catch (error) {
+        console.error('Error de red:', error);
+        alert('Hubo un problema de conexión.');
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
