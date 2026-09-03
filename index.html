@@ -170,8 +170,8 @@
   </div>
 
   <script>
-    // Pega aquí tu API Key de Google AI Studio
-    const GEMINI_API_KEY = "AQ.Ab8RN6LjuzpkJ78QL1s1QTMWTVeTAN0vBa2-8p434Vdig3HOoQ";
+    // ⚠️ PEGA AQUÍ TU NUEVA API KEY DE GOOGLE AI STUDIO ⚠️
+    const GEMINI_API_KEY = "AQ.Ab8RN6LySiDdbwMbXblUiOaNAY6d4nCTv0mHG7X27Vn6B2k8vA";
 
     function addItem() {
       const nameInput = document.getElementById('itemName');
@@ -199,18 +199,6 @@
       nameInput.value = '';
     }
 
-    async function fetchRecipeFromModel(modelName, promptText, key) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }]
-        })
-      });
-      return response;
-    }
-
     async function generateRecipe() {
       const itemElements = document.querySelectorAll('.item-name');
       const ingredients = Array.from(itemElements).map(el => el.innerText);
@@ -221,8 +209,8 @@
       }
 
       const key = GEMINI_API_KEY.trim();
-      if (!key || key === "TU_API_KEY_AQUI") {
-        alert('Por favor pega tu API Key en la variable GEMINI_API_KEY.');
+      if (!key || key === "PEGA_TU_NUEVA_CLAVE_AQUI") {
+        alert('Por favor pega tu nueva API Key en la variable GEMINI_API_KEY.');
         return;
       }
 
@@ -235,36 +223,28 @@
 
       const promptText = `Actúa como un chef experto en cocina de aprovechamiento. Crea una receta sencilla y rápida utilizando principalmente estos ingredientes: ${ingredients.join(', ')}. Incluye un título, lista de ingredientes e instrucciones paso a paso. Mantén el formato ordenado y breve.`;
 
-      // Lista de modelos para probar en caso de alta demanda
-      const modelsToTry = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
-
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
       try {
-        let data = null;
-        let success = false;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }]
+          })
+        });
 
-        for (const model of modelsToTry) {
-          const response = await fetchRecipeFromModel(model, promptText, key);
-          const resData = await response.json();
+        const data = await response.json();
 
-          if (response.ok) {
-            data = resData;
-            success = true;
-            break;
-          } else {
-            console.warn(`El modelo ${model} falló o está saturado:`, resData);
-          }
-        }
-
-        if (success && data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-          const recipeText = data.candidates[0].content.parts[0].text;
-          resultContent.innerText = recipeText;
+        if (response.ok && data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+          resultContent.innerText = data.candidates[0].content.parts[0].text;
           resultCard.style.display = 'block';
         } else {
-          alert('Los servidores están con mucha demanda en este instante. Por favor presiona el botón nuevamente en 5 segundos.');
+          console.error('Error detallado de Google:', data);
+          alert(`Ocurrió un error: ${data.error?.message || 'Revisa la consola del navegador'}`);
         }
       } catch (error) {
         console.error('Error de red:', error);
-        alert('Hubo un problema de conexión.');
+        alert('Hubo un problema de conexión a internet o la API bloqueó la petición.');
       } finally {
         loading.style.display = 'none';
       }
